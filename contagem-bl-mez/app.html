@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0D47A1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BL_MEZ">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230D47A1' width='100' height='100' rx='20'/><text x='50' y='65' text-anchor='middle' fill='white' font-size='50' font-weight='bold'>BL</text></svg>">
+    <title>Contagem BL_MEZ</title>
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- ZXing Library para leitura de códigos -->
+    <script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
+    <!-- SheetJS para exportação Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- ========== HEADER ========== -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">📦</div>
+                <h1>CONTAGEM BL_MEZ</h1>
+            </div>
+            
+            <div class="user-info">
+                <span class="user-badge" id="userNameDisplay">👤 Carregando...</span>
+                <span class="master-badge" id="masterBadge" style="display:none;">MASTER</span>
+                
+                <!-- Menu Hamburguer -->
+                <div class="hamburger-menu">
+                    <button class="hamburger-btn" id="hamburgerBtn" title="Menu">
+                        ☰
+                    </button>
+                    <div class="menu-dropdown" id="menuDropdown">
+                        <button class="menu-item" id="menuDarkMode">
+                            🌓 Modo Escuro
+                        </button>
+                        <button class="menu-item" id="menuSync">
+                            🔄 Sincronizar Dados
+                        </button>
+                        <div class="menu-divider"></div>
+                        <button class="menu-item" id="menuBackup">
+                            💾 Backup Contagens
+                        </button>
+                        <button class="menu-item" id="menuRestore">
+                            📥 Restaurar Backup
+                        </button>
+                        <input type="file" id="restoreFileInput" accept=".json" style="display:none;">
+                        <div class="menu-divider"></div>
+                        <button class="menu-item danger" id="menuLogout">
+                            🚪 Sair
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- ========== ABAS DE NAVEGAÇÃO ========== -->
+        <nav class="tab-navigation" id="tabNavigation">
+            <button class="tab-btn active" data-tab="contagem">
+                📊 Contagem
+            </button>
+            <button class="tab-btn" data-tab="historico" id="tabHistoricoBtn" style="display:none;">
+                📋 Histórico
+            </button>
+        </nav>
+        
+        <!-- ========== CONTEÚDO DAS ABAS ========== -->
+        
+        <!-- ABA CONTAGEM -->
+        <div class="tab-content active" id="tabContagem">
+            <div class="container">
+                <!-- Painel Importação -->
+                <section class="card">
+                    <div class="card-header"><span class="icon">📂</span> Importação da Base DUN_EAN</div>
+                    <div class="import-zone" id="importZone">
+                        <p style="font-size:1.5rem;">📁</p>
+                        <p><strong>Arraste o arquivo TXT aqui</strong><br>ou clique para selecionar</p>
+                        <input type="file" id="fileInput" accept=".txt,.csv,.tsv" style="display:none;">
+                    </div>
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="import-info" id="importInfo">Nenhuma base carregada.</div>
+                </section>
+                
+                <!-- Painel Contagem -->
+                <section class="card">
+                    <div class="card-header"><span class="icon">🔢</span> Contagem de Estoque</div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Rua</label>
+                            <input type="text" id="rua" placeholder="Ex: BL1, BL2, BL10">
+                        </div>
+                        <div class="form-group">
+                            <label>Faixa</label>
+                            <input type="number" id="faixa" placeholder="Número" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Código (PLU / EAN / DUN)</label>
+                            <div class="input-with-btn">
+                                <input type="text" id="codigo" placeholder="Digite ou escaneie..." autocomplete="off">
+                                <button class="btn-camera" id="btnCamera" title="Ler código com câmera">📷</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Descrição</label>
+                            <input type="text" id="descricao" readonly placeholder="Preenchido automaticamente">
+                        </div>
+                        <div class="form-group">
+                            <label>Embalagem</label>
+                            <input type="text" id="embalagem" readonly placeholder="Preenchido automaticamente">
+                        </div>
+                        <div class="form-group">
+                            <label>Qtd. Paletes</label>
+                            <input type="number" id="quantidade" placeholder="Quantidade" min="1" value="1">
+                        </div>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>Observações</label>
+                            <input type="text" id="observacoes" placeholder="Opcional...">
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-success" id="btnSalvar">✅ Salvar Contagem</button>
+                        <button class="btn btn-outline" id="btnNovaContagem">🔄 Nova Contagem</button>
+                    </div>
+                </section>
+                
+                <!-- Estatísticas -->
+                <section class="card">
+                    <div class="card-header"><span class="icon">📊</span> Estatísticas da Sessão</div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="statItens">0</div>
+                            <div class="stat-label">Itens Contados</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statPaletes">0</div>
+                            <div class="stat-label">Total Paletes</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statProdutos">0</div>
+                            <div class="stat-label">Produtos Diferentes</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statUltima" style="font-size:0.9rem;">--</div>
+                            <div class="stat-label">Última Contagem</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+        
+        <!-- ABA HISTÓRICO (apenas Master) -->
+        <div class="tab-content" id="tabHistorico">
+            <div class="container">
+                <section class="card">
+                    <div class="card-header"><span class="icon">📋</span> Histórico de Contagens</div>
+                    <div class="filtros-row">
+                        <input type="text" id="filtroRua" placeholder="🔍 Filtrar Rua...">
+                        <input type="text" id="filtroFaixa" placeholder="🔍 Filtrar Faixa...">
+                        <input type="text" id="filtroCodigo" placeholder="🔍 Filtrar Código...">
+                        <input type="text" id="filtroDescricao" placeholder="🔍 Filtrar Descrição...">
+                    </div>
+                    <div class="btn-row" style="margin-bottom:10px;">
+                        <button class="btn btn-outline btn-sm" id="btnExportCSV">📄 Exportar CSV</button>
+                        <button class="btn btn-outline btn-sm" id="btnExportExcel">📊 Exportar Excel</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th data-sort="rua">Rua <span class="sort-icon"></span></th>
+                                    <th data-sort="faixa">Faixa <span class="sort-icon"></span></th>
+                                    <th data-sort="codigo">Código <span class="sort-icon"></span></th>
+                                    <th data-sort="descricao">Descrição <span class="sort-icon"></span></th>
+                                    <th data-sort="embalagem">Embalagem <span class="sort-icon"></span></th>
+                                    <th data-sort="quantidade">Qtd <span class="sort-icon"></span></th>
+                                    <th data-sort="data">Data <span class="sort-icon"></span></th>
+                                    <th data-sort="hora">Hora <span class="sort-icon"></span></th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaHistorico"></tbody>
+                        </table>
+                    </div>
+                    <p id="nenhumRegistro" style="text-align:center;padding:20px;color:var(--text-secondary);">Nenhuma contagem registrada ainda.</p>
+                </section>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Duplicidade -->
+    <div class="modal-overlay" id="modalDuplicidade" style="display:none;">
+        <div class="modal">
+            <h3>⚠️ Este item já foi contado</h3>
+            <p id="msgDuplicidade"></p>
+            <p style="margin:8px 0;">Escolha uma opção:</p>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="btnEditarExistente">✏️ Editar contagem</button>
+                <button class="btn btn-success" id="btnSomarQuantidade">➕ Somar quantidade</button>
+                <button class="btn btn-outline" id="btnCancelarDuplicidade">❌ Cancelar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal da Câmera -->
+    <div class="modal-overlay" id="modalCamera" style="display:none;">
+        <div class="modal" style="max-width:520px;padding:12px;">
+            <div class="camera-container">
+                <button class="camera-close" id="btnFecharCamera">✕</button>
+                <video id="cameraVideo" autoplay playsinline></video>
+            </div>
+            <p style="margin-top:8px;font-size:0.8rem;color:var(--text-secondary);">Posicione o código de barras ou QR Code em frente à câmera</p>
+            <div class="btn-row" style="justify-content:center;">
+                <button class="btn btn-outline btn-sm" id="btnCameraContinuo">📷 Modo Contínuo: <span id="modoCameraLabel">DESLIGADO</span></button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast container -->
+    <div id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/camera.js"></script>
+    <script>
+        // ============================================================
+        // APLICAÇÃO PRINCIPAL - CONTAGEM BL_MEZ
+        // ============================================================
+        
+        (function() {
+            'use strict';
+            
+            // ============ VERIFICAÇÃO DE ACESSO ============
+            const currentUser = Auth.checkAccess();
+            if (!currentUser) return;
+            
+            const isMaster = Auth.isMaster();
+            
+            // ============ ELEMENTOS DOM ============
+            const $ = (sel) => document.querySelector(sel);
+            const $$ = (sel) => document.querySelectorAll(sel);
+            
+            // Header
+            const userNameDisplay = $('#userNameDisplay');
+            const masterBadge = $('#masterBadge');
+            const hamburgerBtn = $('#hamburgerBtn');
+            const menuDropdown = $('#menuDropdown');
+            
+            // Abas
+            const tabContagem = $('#tabContagem');
+            const tabHistorico = $('#tabHistorico');
+            const tabBtnHistorico = $('#tabHistoricoBtn');
+            
+            // Importação
+            const importZone = $('#importZone');
+            const fileInput = $('#fileInput');
+            const progressBar = $('#progressBar');
+            const progressFill = $('#progressFill');
+            const importInfo = $('#importInfo');
+            
+            // Contagem
+            const inputRua = $('#rua');
+            const inputFaixa = $('#faixa');
+            const inputCodigo = $('#codigo');
+            const inputDescricao = $('#descricao');
+            const inputEmbalagem = $('#embalagem');
+            const inputQuantidade = $('#quantidade');
+            const inputObservacoes = $('#observacoes');
+            const btnSalvar = $('#btnSalvar');
+            const btnNovaContagem = $('#btnNovaContagem');
+            const btnCamera = $('#btnCamera');
+            
+            // Estatísticas
+            const statItens = $('#statItens');
+            const statPaletes = $('#statPaletes');
+            const statProdutos = $('#statProdutos');
+            const statUltima = $('#statUltima');
+            
+            // Histórico
+            const tabelaHistorico = $('#tabelaHistorico');
+            const nenhumRegistro = $('#nenhumRegistro');
+            const filtroRua = $('#filtroRua');
+            const filtroFaixa = $('#filtroFaixa');
+            const filtroCodigo = $('#filtroCodigo');
+            const filtroDescricao = $('#filtroDescricao');
+            
+            // Modais
+            const modalDuplicidade = $('#modalDuplicidade');
+            const msgDuplicidade = $('#msgDuplicidade');
+            const modalCamera = $('#modalCamera');
+            const cameraVideo = $('#cameraVideo');
+            const btnFecharCamera = $('#btnFecharCamera');
+            const btnCameraContinuo = $('#btnCameraContinuo');
+            const modoCameraLabel = $('#modoCameraLabel');
+            
+            // Estado da aplicação
+            const App = {
+                produtosMapCodAcesso: new Map(),
+                produtosMapSeqProduto: new Map(),
+                baseMeta: null,
+                contagensLocal: [],
+                pendingContagens: [],
+                sortColumn: null,
+                sortDirection: 'asc',
+                resolvendoDuplicidade: null,
+                
+                COLUMNS: {
+                    SEQPRODUTO: 1,
+                    DESCCOMPLETA: 2,
+                    CODACESSO: 3,
+                    EMBALAGEM: 7,
+                    QTDEMBALAGEM: 8
+                },
+                
+                // Carregar contagens do localStorage
+                loadContagens() {
+                    const data = localStorage.getItem(Database.KEYS.CONTAGENS);
+                    this.contagensLocal = data ? JSON.parse(data) : [];
+                    
+                    const pending = localStorage.getItem(Database.KEYS.PENDING);
+                    this.pendingContagens = pending ? JSON.parse(pending) : [];
+                },
+                
+                // Salvar contagens no localStorage
+                saveContagens() {
+                    localStorage.setItem(Database.KEYS.CONTAGENS, JSON.stringify(this.contagensLocal));
+                    localStorage.setItem(Database.KEYS.PENDING, JSON.stringify(this.pendingContagens));
+                },
+                
+                // Carregar cache de produtos
+                loadProdutosCache() {
+                    const cache = localStorage.getItem(Database.KEYS.PRODUTOS_CACHE);
+                    if (cache) {
+                        try {
+                            const parsed = JSON.parse(cache);
+                            this.produtosMapCodAcesso = new Map(parsed.produtos);
+                            this.baseMeta = parsed.meta;
+                            this.atualizarInfoImportacao();
+                        } catch (e) {}
+                    }
+                },
+                
+                // Salvar cache de produtos
+                saveProdutosCache() {
+                    const cache = {
+                        produtos: Array.from(this.produtosMapCodAcesso.entries()),
+                        meta: this.baseMeta
+                    };
+                    localStorage.setItem(Database.KEYS.PRODUTOS_CACHE, JSON.stringify(cache));
+                },
+                
+                // Atualizar informações de importação na UI
+                atualizarInfoImportacao() {
+                    if (!this.baseMeta) {
+                        importInfo.innerHTML = '<span style="color:#999;">Nenhuma base importada.</span>';
+                        return;
+                    }
+                    const dh = Utils.formatDataHora(this.baseMeta.dataHoraImportacao);
+                    const fonte = this.baseMeta.nomeArquivo === 'Supabase' ?
+                        '<span class="badge">☁️ Supabase</span>' :
+                        `<span class="badge">📄 ${Utils.escapeHTML(this.baseMeta.nomeArquivo)}</span>`;
+                    
+                    importInfo.innerHTML = `
+                        ${fonte}
+                        <span class="badge">📊 ${this.baseMeta.totalRegistros.toLocaleString('pt-BR')} registros</span>
+                        <span>📅 ${dh.data} ${dh.hora}</span>
+                    `;
+                },
+                
+                // Importar base TXT
+                async importarBase(conteudo, nomeArquivo) {
+                    const linhas = conteudo.split(/\r?\n/).filter(l => l.trim() !== '');
+                    if (linhas.length === 0) throw new Error('Arquivo vazio.');
+                    
+                    const delimitadores = ['\t', ';', ','];
+                    let delimitador = '\t';
+                    let maxCols = 0;
+                    
+                    for (const d of delimitadores) {
+                        const cols = linhas[0].split(d).length;
+                        if (cols > maxCols) { maxCols = cols; delimitador = d; }
+                    }
+                    
+                    const primeiraCols = linhas[0].split(delimitador);
+                    const pareceCabecalho = primeiraCols.some(c => /seqproduto|codacesso/i.test(c.trim()));
+                    const inicioDados = pareceCabecalho ? 1 : 0;
+                    
+                    if (primeiraCols.length < 9) {
+                        throw new Error('Arquivo precisa ter pelo menos 9 colunas.');
+                    }
+                    
+                    this.produtosMapCodAcesso.clear();
+                    this.produtosMapSeqProduto.clear();
+                    
+                    const produtosParaSupabase = [];
+                    const total = linhas.length - inicioDados;
+                    let processados = 0;
+                    
+                    for (let i = inicioDados; i < linhas.length; i++) {
+                        const cols = linhas[i].split(delimitador);
+                        if (cols.length < 9) continue;
+                        
+                        const seqProduto = (cols[this.COLUMNS.SEQPRODUTO] || '').trim();
+                        const descCompleta = (cols[this.COLUMNS.DESCCOMPLETA] || '').trim();
+                        const codAcesso = (cols[this.COLUMNS.CODACESSO] || '').trim();
+                        const embalagem = (cols[this.COLUMNS.EMBALAGEM] || '').trim();
+                        const qtdEmbalagem = (cols[this.COLUMNS.QTDEMBALAGEM] || '').trim();
+                        
+                        if (!codAcesso && !seqProduto) continue;
+                        
+                        const embFormatada = embalagem && qtdEmbalagem ? `${embalagem} x ${qtdEmbalagem}` : (embalagem || qtdEmbalagem || '');
+                        
+                        const produto = { seqProduto, descCompleta, codAcesso, embalagem, qtdEmbalagem, embalagemFormatada: embFormatada };
+                        
+                        if (codAcesso) this.produtosMapCodAcesso.set(codAcesso, produto);
+                        if (seqProduto) this.produtosMapSeqProduto.set(seqProduto, produto);
+                        
+                        produtosParaSupabase.push({
+                            seqproduto: seqProduto,
+                            desccompleta: descCompleta,
+                            codacesso: codAcesso,
+                            embalagem,
+                            qtdembalagem: qtdEmbalagem
+                        });
+                        
+                        processados++;
+                        if (processados % 500 === 0) {
+                            const progresso = Math.round((processados / total) * 100);
+                            progressFill.style.width = progresso + '%';
+                            await new Promise(r => setTimeout(r, 10));
+                        }
+                    }
+                    
+                    this.baseMeta = {
+                        nomeArquivo,
+                        totalRegistros: this.produtosMapCodAcesso.size,
+                        dataHoraImportacao: new Date().toISOString()
+                    };
+                    
+                    this.saveProdutosCache();
+                    this.atualizarInfoImportacao();
+                    
+                    // Upload para Supabase
+                    if (Database.supabase && navigator.onLine) {
+                        try {
+                            await Database.uploadProdutos(produtosParaSupabase);
+                            Utils.showToast('✅ Base enviada para o Supabase!', 'success');
+                        } catch (err) {
+                            Utils.showToast('⚠️ Base salva localmente. Erro ao enviar: ' + err.message, 'warning');
+                        }
+                    }
+                    
+                    return this.baseMeta;
+                },
+                
+                // Pesquisar produto
+                pesquisarProduto(codigo) {
+                    if (!codigo || codigo.trim() === '') return null;
+                    const cod = codigo.trim();
+                    
+                    if (this.produtosMapCodAcesso.has(cod)) return this.produtosMapCodAcesso.get(cod);
+                    if (this.produtosMapSeqProduto.has(cod)) return this.produtosMapSeqProduto.get(cod);
+                    
+                    for (const [key, val] of this.produtosMapCodAcesso) {
+                        if (key.startsWith(cod)) return val;
+                    }
+                    
+                    return null;
+                },
+                
+                // Salvar contagem
+                async salvarContagem(contagem) {
+                    const existente = this.contagensLocal.findIndex(c =>
+                        c.rua === contagem.rua && c.faixa === contagem.faixa && c.codigo === contagem.codigo
+                    );
+                    
+                    if (existente >= 0) {
+                        return new Promise((resolve) => {
+                            this.resolvendoDuplicidade = (opcao) => {
+                                if (opcao === 'editar') {
+                                    this.contagensLocal[existente] = { ...contagem, synced: false, localId: this.contagensLocal[existente].localId };
+                                } else if (opcao === 'somar') {
+                                    this.contagensLocal[existente].quantidade += contagem.quantidade;
+                                    this.contagensLocal[existente].synced = false;
+                                }
+                                this.saveContagens();
+                                resolve(opcao);
+                            };
+                            
+                            msgDuplicidade.innerHTML = `
+                                <strong>Rua:</strong> ${Utils.escapeHTML(this.contagensLocal[existente].rua)} |
+                                <strong>Faixa:</strong> ${this.contagensLocal[existente].faixa} |
+                                <strong>Código:</strong> ${Utils.escapeHTML(this.contagensLocal[existente].codigo)}<br>
+                                <strong>Qtd atual:</strong> ${this.contagensLocal[existente].quantidade} |
+                                <strong>Nova qtd:</strong> ${contagem.quantidade}
+                            `;
+                            modalDuplicidade.style.display = 'flex';
+                        });
+                    }
+                    
+                    this.contagensLocal.push(contagem);
+                    this.pendingContagens.push(contagem);
+                    this.saveContagens();
+                    
+                    if (Database.supabase && navigator.onLine) {
+                        await this.syncPendingContagens();
+                    }
+                    
+                    return 'novo';
+                },
+                
+                // Sincronizar contagens pendentes
+                async syncPendingContagens() {
+                    if (!Database.supabase || this.pendingContagens.length === 0) return;
+                    
+                    for (const cont of [...this.pendingContagens]) {
+                        try {
+                            const result = await Database.saveContagem({
+                                rua: cont.rua,
+                                faixa: cont.faixa,
+                                codigo: cont.codigo,
+                                descricao: cont.descricao,
+                                embalagem: cont.embalagem,
+                                quantidade: cont.quantidade,
+                                observacoes: cont.observacoes || '',
+                                data: cont.data,
+                                hora: cont.hora
+                            });
+                            
+                            cont.synced = true;
+                            cont.supabase_id = result.id;
+                            this.pendingContagens = this.pendingContagens.filter(c => c.localId !== cont.localId);
+                        } catch (err) {
+                            console.error('Erro ao sincronizar:', err);
+                        }
+                    }
+                    
+                    this.saveContagens();
+                },
+                
+                // Sincronizar dados completos
+                async syncData() {
+                    if (!Database.supabase) return;
+                    
+                    try {
+                        const remotas = await Database.fetchContagens();
+                        const remoteMapped = remotas.map(c => ({
+                            localId: 'remote_' + c.id,
+                            supabase_id: c.id,
+                            rua: c.rua,
+                            faixa: c.faixa,
+                            codigo: c.codigo,
+                            descricao: c.descricao,
+                            embalagem: c.embalagem,
+                            quantidade: c.quantidade,
+                            observacoes: c.observacoes || '',
+                            data: c.data,
+                            hora: c.hora,
+                            dataISO: c.created_at,
+                            synced: true
+                        }));
+                        
+                        const merged = [...remoteMapped];
+                        for (const local of this.contagensLocal) {
+                            if (!local.synced) merged.push(local);
+                        }
+                        
+                        this.contagensLocal = merged;
+                        this.saveContagens();
+                    } catch (err) {
+                        console.error('Erro ao sincronizar:', err);
+                    }
+                    
+                    await this.syncPendingContagens();
+                    this.renderizarHistorico();
+                    this.atualizarEstatisticas();
+                },
+                
+                // Filtrar histórico
+                getHistoricoFiltrado(filtros = {}) {
+                    let lista = [...this.contagensLocal];
+                    
+                    if (filtros.rua) lista = lista.filter(c => c.rua.toLowerCase().includes(filtros.rua));
+                    if (filtros.faixa) lista = lista.filter(c => String(c.faixa).includes(filtros.faixa));
+                    if (filtros.codigo) lista = lista.filter(c => c.codigo.toLowerCase().includes(filtros.codigo));
+                    if (filtros.descricao) lista = lista.filter(c => c.descricao.toLowerCase().includes(filtros.descricao));
+                    
+                    if (this.sortColumn) {
+                        lista.sort((a, b) => {
+                            let valA = a[this.sortColumn];
+                            let valB = b[this.sortColumn];
+                            if (typeof valA === 'string') valA = valA.toLowerCase();
+                            if (typeof valB === 'string') valB = valB.toLowerCase();
+                            return this.sortDirection === 'asc' ? (valA < valB ? -1 : 1) : (valA > valB ? -1 : 1);
+                        });
+                    } else {
+                        lista.sort((a, b) => new Date(b.dataISO || 0) - new Date(a.dataISO || 0));
+                    }
+                    
+                    return lista;
+                },
+                
+                // Renderizar tabela de histórico
+                renderizarHistorico() {
+                    if (!tabelaHistorico) return;
+                    
+                    const filtros = {
+                        rua: filtroRua ? filtroRua.value.toLowerCase().trim() : '',
+                        faixa: filtroFaixa ? filtroFaixa.value.toLowerCase().trim() : '',
+                        codigo: filtroCodigo ? filtroCodigo.value.toLowerCase().trim() : '',
+                        descricao: filtroDescricao ? filtroDescricao.value.toLowerCase().trim() : ''
+                    };
+                    
+                    const lista = this.getHistoricoFiltrado(filtros);
+                    tabelaHistorico.innerHTML = '';
+                    
+                    if (lista.length === 0) {
+                        if (nenhumRegistro) nenhumRegistro.style.display = 'block';
+                    } else {
+                        if (nenhumRegistro) nenhumRegistro.style.display = 'none';
+                        
+                        lista.forEach((c) => {
+                            const syncedIcon = c.synced ? '☁️' : '📱';
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${Utils.escapeHTML(c.rua)}</td>
+                                <td>${c.faixa}</td>
+                                <td>${Utils.escapeHTML(c.codigo)} ${syncedIcon}</td>
+                                <td>${Utils.escapeHTML(c.descricao)}</td>
+                                <td>${Utils.escapeHTML(c.embalagem)}</td>
+                                <td><strong>${c.quantidade}</strong></td>
+                                <td>${c.data || '--'}</td>
+                                <td>${c.hora || '--'}</td>
+                                <td>
+                                    <button class="btn btn-outline btn-sm btn-editar" data-id="${c.localId}">✏️</button>
+                                    <button class="btn btn-danger-text btn-sm btn-excluir" data-id="${c.localId}">🗑️</button>
+                                </td>
+                            `;
+                            tabelaHistorico.appendChild(tr);
+                        });
+                        
+                        tabelaHistorico.querySelectorAll('.btn-editar').forEach(btn => {
+                            btn.addEventListener('click', () => {
+                                const index = this.contagensLocal.findIndex(c => c.localId === btn.dataset.id);
+                                if (index >= 0) this.editarContagem(index);
+                            });
+                        });
+                        
+                        tabelaHistorico.querySelectorAll('.btn-excluir').forEach(btn => {
+                            btn.addEventListener('click', () => {
+                                const index = this.contagensLocal.findIndex(c => c.localId === btn.dataset.id);
+                                if (index >= 0) this.excluirContagem(index);
+                            });
+                        });
+                    }
+                    
+                    // Atualizar ícones de ordenação
+                    $$('thead th[data-sort]').forEach(th => {
+                        const col = th.dataset.sort;
+                        const icon = th.querySelector('.sort-icon');
+                        if (col === this.sortColumn) {
+                            icon.textContent = this.sortDirection === 'asc' ? '▲' : '▼';
+                        } else {
+                            icon.textContent = '';
+                        }
+                    });
+                },
+                
+                // Editar contagem
+                editarContagem(index) {
+                    const c = this.contagensLocal[index];
+                    inputRua.value = c.rua;
+                    inputFaixa.value = c.faixa;
+                    inputCodigo.value = c.codigo;
+                    inputDescricao.value = c.descricao;
+                    inputEmbalagem.value = c.embalagem;
+                    inputQuantidade.value = c.quantidade;
+                    inputObservacoes.value = c.observacoes || '';
+                    
+                    this.contagensLocal.splice(index, 1);
+                    this.saveContagens();
+                    this.renderizarHistorico();
+                    this.atualizarEstatisticas();
+                    
+                    // Mudar para aba de contagem
+                    document.querySelector('[data-tab="contagem"]').click();
+                    
+                    Utils.showToast('Contagem carregada para edição.', 'success');
+                },
+                
+                // Excluir contagem
+                async excluirContagem(index) {
+                    if (!confirm('Deseja realmente excluir esta contagem?')) return;
+                    
+                    const contagem = this.contagensLocal[index];
+                    
+                    if (contagem.supabase_id && Database.supabase) {
+                        try {
+                            await Database.deleteContagem(contagem.supabase_id);
+                        } catch (err) {
+                            console.error('Erro ao excluir:', err);
+                        }
+                    }
+                    
+                    this.contagensLocal.splice(index, 1);
+                    this.pendingContagens = this.pendingContagens.filter(c => c.localId !== contagem.localId);
+                    this.saveContagens();
+                    this.renderizarHistorico();
+                    this.atualizarEstatisticas();
+                    Utils.showToast('Contagem excluída.', 'success');
+                },
+                
+                // Atualizar estatísticas
+                atualizarEstatisticas() {
+                    const totalItens = this.contagensLocal.length;
+                    const totalPaletes = this.contagensLocal.reduce((s, c) => s + (c.quantidade || 0), 0);
+                    const produtosUnicos = new Set(this.contagensLocal.map(c => c.codigo)).size;
+                    const ultima = this.contagensLocal.length > 0 ?
+                        `${this.contagensLocal[this.contagensLocal.length - 1].data} ${this.contagensLocal[this.contagensLocal.length - 1].hora}` :
+                        '--';
+                    
+                    if (statItens) statItens.textContent = totalItens.toLocaleString('pt-BR');
+                    if (statPaletes) statPaletes.textContent = totalPaletes.toLocaleString('pt-BR');
+                    if (statProdutos) statProdutos.textContent = produtosUnicos.toLocaleString('pt-BR');
+                    if (statUltima) statUltima.textContent = ultima;
+                }
+            };
+            
+            // ============ INICIALIZAÇÃO ============
+            function init() {
+                // Exibir informações do usuário
+                userNameDisplay.textContent = `👤 ${currentUser.nome}`;
+                
+                if (isMaster) {
+                    masterBadge.style.display = 'inline';
+                    tabBtnHistorico.style.display = 'inline-block';
+                }
+                
+                // Inicializar Database (conexão automática)
+                const dbOk = Database.init();
+                console.log(dbOk ? '✅ Supabase conectado' : '⚠️ Supabase offline');
+                
+                // Carregar dados
+                App.loadContagens();
+                App.loadProdutosCache();
+                
+                // Atualizar UI
+                App.renderizarHistorico();
+                App.atualizarEstatisticas();
+                
+                // Sincronizar se online
+                if (Database.supabase && navigator.onLine) {
+                    App.syncData().then(() => {
+                        console.log('✅ Dados sincronizados');
+                    });
+                }
+                
+                // Dark mode
+                const darkPref = localStorage.getItem('blmez_darkmode');
+                if (darkPref === '1') {
+                    document.body.classList.add('dark-mode');
+                    const darkBtn = $('#menuDarkMode');
+                    if (darkBtn) darkBtn.textContent = '☀️ Modo Claro';
+                }
+                
+                // Foco inicial
+                inputRua.focus();
+                
+                console.log('🚀 Contagem BL_MEZ pronta!');
+            }
+            
+            // ============ MENU HAMBURGUER ============
+            hamburgerBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                menuDropdown.classList.toggle('show');
+                hamburgerBtn.classList.toggle('active');
+            });
+            
+            document.addEventListener('click', () => {
+                menuDropdown.classList.remove('show');
+                hamburgerBtn.classList.remove('active');
+            });
+            
+            menuDropdown.addEventListener('click', (e) => e.stopPropagation());
+            
+            // Itens do menu
+            $('#menuDarkMode').addEventListener('click', () => {
+                document.body.classList.toggle('dark-mode');
+                const isDark = document.body.classList.contains('dark-mode');
+                localStorage.setItem('blmez_darkmode', isDark ? '1' : '0');
+                $('#menuDarkMode').textContent = isDark ? '☀️ Modo Claro' : '🌓 Modo Escuro';
+                menuDropdown.classList.remove('show');
+            });
+            
+            $('#menuSync').addEventListener('click', async () => {
+                menuDropdown.classList.remove('show');
+                if (!Database.supabase) {
+                    Utils.showToast('Sem conexão com Supabase.', 'error');
+                    return;
+                }
+                await App.syncData();
+                Utils.showToast('Sincronização concluída!', 'success');
+            });
+            
+            $('#menuBackup').addEventListener('click', () => {
+                menuDropdown.classList.remove('show');
+                if (App.contagensLocal.length === 0) {
+                    Utils.showToast('Nenhum dado para backup.', 'error');
+                    return;
+                }
+                const json = JSON.stringify(App.contagensLocal, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                Utils.downloadBlob(blob, `backup_blmez_${new Date().toISOString().slice(0,10)}.json`);
+                Utils.showToast('Backup realizado!', 'success');
+            });
+            
+            $('#menuRestore').addEventListener('click', () => {
+                menuDropdown.classList.remove('show');
+                $('#restoreFileInput').click();
+            });
+            
+            $('#restoreFileInput').addEventListener('change', (e) => {
+                if (e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        try {
+                            const dados = JSON.parse(ev.target.result);
+                            if (!Array.isArray(dados)) throw new Error('Formato inválido');
+                            if (confirm(`Restaurar ${dados.length} registros?`)) {
+                                App.contagensLocal = dados;
+                                App.pendingContagens = dados.filter(c => !c.synced);
+                                App.saveContagens();
+                                App.renderizarHistorico();
+                                App.atualizarEstatisticas();
+                                Utils.showToast(`✅ ${dados.length} registros restaurados!`, 'success');
+                            }
+                        } catch (err) {
+                            Utils.showToast('Arquivo inválido.', 'error');
+                        }
+                    };
+                    reader.readAsText(e.target.files[0]);
+                    e.target.value = '';
+                }
+            });
+            
+            $('#menuLogout').addEventListener('click', () => {
+                if (confirm('Deseja realmente sair?')) {
+                    Auth.logout();
+                }
+            });
+            
+            // ============ ABAS ============
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tab = btn.dataset.tab;
+                    
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    const tabContent = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+                    if (tabContent) tabContent.classList.add('active');
+                    
+                    if (tab === 'historico') {
+                        App.renderizarHistorico();
+                    }
+                });
+            });
+            
+            // ============ IMPORTAÇÃO ============
+            importZone.addEventListener('click', () => fileInput.click());
+            
+            fileInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                progressBar.classList.add('active');
+                progressFill.style.width = '0%';
+                
+                const reader = new FileReader();
+                reader.onload = async (ev) => {
+                    try {
+                        const meta = await App.importarBase(ev.target.result, file.name);
+                        Utils.showToast(`✅ ${meta.totalRegistros} registros importados!`, 'success');
+                    } catch (err) {
+                        Utils.showToast('❌ Erro: ' + err.message, 'error');
+                    }
+                    progressBar.classList.remove('active');
+                };
+                reader.readAsText(file);
+                fileInput.value = '';
+            });
+            
+            // Drag and drop
+            importZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                importZone.classList.add('drag-over');
+            });
+            importZone.addEventListener('dragleave', () => importZone.classList.remove('drag-over'));
+            importZone.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                importZone.classList.remove('drag-over');
+                const file = e.dataTransfer.files[0];
+                if (!file) return;
+                
+                progressBar.classList.add('active');
+                const reader = new FileReader();
+                reader.onload = async (ev) => {
+                    try {
+                        await App.importarBase(ev.target.result, file.name);
+                    } catch (err) {
+                        Utils.showToast('❌ Erro: ' + err.message, 'error');
+                    }
+                    progressBar.classList.remove('active');
+                };
+                reader.readAsText(file);
+            });
+            
+            // ============ PESQUISA DE PRODUTOS ============
+            function pesquisarEAtualizarCampos(codigo) {
+                if (!codigo || codigo.trim() === '') {
+                    inputDescricao.value = '';
+                    inputEmbalagem.value = '';
+                    return;
+                }
+                
+                if (App.produtosMapCodAcesso.size === 0) {
+                    Utils.showToast('⚠️ Importe a base primeiro!', 'error');
+                    return;
+                }
+                
+                const produto = App.pesquisarProduto(codigo);
+                
+                if (produto) {
+                    inputDescricao.value = produto.descCompleta;
+                    inputEmbalagem.value = produto.embalagemFormatada;
+                    inputCodigo.classList.add('input-success');
+                    inputDescricao.classList.add('input-success');
+                    inputEmbalagem.classList.add('input-success');
+                    setTimeout(() => {
+                        inputCodigo.classList.remove('input-success');
+                        inputDescricao.classList.remove('input-success');
+                        inputEmbalagem.classList.remove('input-success');
+                    }, 1500);
+                    Utils.playBeep();
+                    Utils.vibrate(40);
+                } else {
+                    inputDescricao.value = '';
+                    inputEmbalagem.value = '';
+                    inputCodigo.classList.add('input-error');
+                    setTimeout(() => inputCodigo.classList.remove('input-error'), 1500);
+                    Utils.showToast('❌ Produto não encontrado.', 'error');
+                }
+            }
+            
+            inputCodigo.addEventListener('change', () => pesquisarEAtualizarCampos(inputCodigo.value));
+            inputCodigo.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    pesquisarEAtualizarCampos(inputCodigo.value);
+                    if (inputDescricao.value) {
+                        inputQuantidade.focus();
+                        inputQuantidade.select();
+                    }
+                }
+            });
+            
+            // ============ SALVAR CONTAGEM ============
+            btnSalvar.addEventListener('click', async () => {
+                const rua = inputRua.value.trim();
+                const faixa = parseInt(inputFaixa.value) || 0;
+                const codigo = inputCodigo.value.trim();
+                const descricao = inputDescricao.value.trim();
+                const embalagem = inputEmbalagem.value.trim();
+                const quantidade = parseInt(inputQuantidade.value) || 0;
+                const observacoes = inputObservacoes.value.trim();
+                
+                if (!rua) { Utils.showToast('⚠️ Informe a Rua.', 'error'); inputRua.focus(); return; }
+                if (!faixa) { Utils.showToast('⚠️ Informe a Faixa.', 'error'); inputFaixa.focus(); return; }
+                if (!codigo) { Utils.showToast('⚠️ Informe o Código.', 'error'); inputCodigo.focus(); return; }
+                if (!descricao) { Utils.showToast('⚠️ Produto não encontrado.', 'error'); return; }
+                if (quantidade <= 0) { Utils.showToast('⚠️ Quantidade inválida.', 'error'); inputQuantidade.focus(); return; }
+                
+                const dh = Utils.formatDataHora(new Date());
+                
+                const contagem = {
+                    localId: Utils.generateId(),
+                    rua, faixa, codigo, descricao, embalagem, quantidade, observacoes,
+                    data: dh.data, hora: dh.hora, dataISO: dh.iso,
+                    synced: false,
+                    usuario: currentUser.usuario,
+                    usuarioNome: currentUser.nome
+                };
+                
+                const resultado = await App.salvarContagem(contagem);
+                
+                if (resultado === 'novo') {
+                    Utils.showToast('✅ Contagem salva!', 'success');
+                    limparFormulario();
+                } else if (resultado === 'editar') {
+                    Utils.showToast('✅ Contagem atualizada!', 'success');
+                    limparFormulario();
+                } else if (resultado === 'somar') {
+                    Utils.showToast('✅ Quantidade somada!', 'success');
+                    limparFormulario();
+                }
+                
+                App.renderizarHistorico();
+                App.atualizarEstatisticas();
+            });
+            
+            function limparFormulario() {
+                inputRua.value = '';
+                inputFaixa.value = '';
+                inputCodigo.value = '';
+                inputDescricao.value = '';
+                inputEmbalagem.value = '';
+                inputQuantidade.value = '1';
+                inputObservacoes.value = '';
+                inputCodigo.classList.remove('input-success', 'input-error');
+                inputRua.focus();
+            }
+            
+            btnNovaContagem.addEventListener('click', limparFormulario);
+            
+            // ============ CÂMERA ============
+            btnCamera.addEventListener('click', () => {
+                if (Camera.isOpen) {
+                    Camera.close();
+                    modalCamera.style.display = 'none';
+                } else {
+                    modalCamera.style.display = 'flex';
+                    Camera.open(cameraVideo, (codigo) => {
+                        inputCodigo.value = codigo;
+                        pesquisarEAtualizarCampos(codigo);
+                        if (!Camera.continuousMode) {
+                            modalCamera.style.display = 'none';
+                        }
+                    });
+                }
+            });
+            
+            btnFecharCamera.addEventListener('click', () => {
+                Camera.close();
+                modalCamera.style.display = 'none';
+            });
+            
+            btnCameraContinuo.addEventListener('click', () => {
+                const isContinuous = Camera.toggleContinuous();
+                modoCameraLabel.textContent = isContinuous ? 'LIGADO' : 'DESLIGADO';
+            });
+            
+            // ============ MODAIS ============
+            $('#btnEditarExistente').addEventListener('click', () => {
+                modalDuplicidade.style.display = 'none';
+                if (App.resolvendoDuplicidade) {
+                    App.resolvendoDuplicidade('editar');
+                    App.resolvendoDuplicidade = null;
+                }
+                App.renderizarHistorico();
+                App.atualizarEstatisticas();
+            });
+            
+            $('#btnSomarQuantidade').addEventListener('click', () => {
+                modalDuplicidade.style.display = 'none';
+                if (App.resolvendoDuplicidade) {
+                    App.resolvendoDuplicidade('somar');
+                    App.resolvendoDuplicidade = null;
+                }
+                App.renderizarHistorico();
+                App.atualizarEstatisticas();
+            });
+            
+            $('#btnCancelarDuplicidade').addEventListener('click', () => {
+                modalDuplicidade.style.display = 'none';
+                if (App.resolvendoDuplicidade) App.resolvendoDuplicidade = null;
+            });
+            
+            // ============ EXPORTAÇÃO ============
+            function getDadosExportacao() {
+                return App.getHistoricoFiltrado({
+                    rua: filtroRua.value.toLowerCase().trim(),
+                    faixa: filtroFaixa.value.toLowerCase().trim(),
+                    codigo: filtroCodigo.value.toLowerCase().trim(),
+                    descricao: filtroDescricao.value.toLowerCase().trim()
+                }).map(c => ({
+                    Rua: c.rua, Faixa: c.faixa, Código: c.codigo,
+                    Descrição: c.descricao, Embalagem: c.embalagem,
+                    Quantidade: c.quantidade, Data: c.data || '',
+                    Hora: c.hora || '', Observações: c.observacoes || '',
+                    Usuário: c.usuarioNome || ''
+                }));
+            }
+            
+            $('#btnExportCSV').addEventListener('click', () => {
+                if (!isMaster) { Utils.showToast('Acesso restrito.', 'error'); return; }
+                const dados = getDadosExportacao();
+                if (dados.length === 0) { Utils.showToast('Nenhum dado.', 'error'); return; }
+                const cabecalho = ['Rua','Faixa','Código','Descrição','Embalagem','Quantidade','Data','Hora','Observações','Usuário'];
+                const linhas = [cabecalho.join(';')];
+                dados.forEach(d => linhas.push(Object.values(d).map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')));
+                const blob = new Blob(['\uFEFF' + linhas.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                Utils.downloadBlob(blob, `contagem_${new Date().toISOString().slice(0,10)}.csv`);
+                Utils.showToast('CSV exportado!', 'success');
+            });
+            
+            $('#btnExportExcel').addEventListener('click', () => {
+                if (!isMaster) { Utils.showToast('Acesso restrito.', 'error'); return; }
+                const dados = getDadosExportacao();
+                if (dados.length === 0) { Utils.showToast('Nenhum dado.', 'error'); return; }
+                const ws = XLSX.utils.json_to_sheet(dados);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Contagens');
+                XLSX.writeFile(wb, `contagem_${new Date().toISOString().slice(0,10)}.xlsx`);
+                Utils.showToast('Excel exportado!', 'success');
+            });
+            
+            // ============ FILTROS E ORDENAÇÃO ============
+            [filtroRua, filtroFaixa, filtroCodigo, filtroDescricao].forEach(input => {
+                if (input) input.addEventListener('input', () => App.renderizarHistorico());
+            });
+            
+            $$('thead th[data-sort]').forEach(th => {
+                th.addEventListener('click', () => {
+                    const col = th.dataset.sort;
+                    if (App.sortColumn === col) {
+                        App.sortDirection = App.sortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        App.sortColumn = col;
+                        App.sortDirection = 'asc';
+                    }
+                    App.renderizarHistorico();
+                });
+            });
+            
+            // ============ ATALHOS ============
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    if (Camera.isOpen) { Camera.close(); modalCamera.style.display = 'none'; }
+                    limparFormulario();
+                }
+                if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); btnSalvar.click(); }
+                if (e.key === 'Enter' && document.activeElement === inputQuantidade) {
+                    e.preventDefault(); btnSalvar.click();
+                }
+            });
+            
+            // ============ ONLINE/OFFLINE ============
+            window.addEventListener('online', async () => {
+                Utils.showToast('🌐 Online!', 'success');
+                if (Database.supabase) await App.syncData();
+            });
+            
+            window.addEventListener('offline', () => Utils.showToast('📱 Modo offline.', 'warning'));
+            
+            // ============ INICIAR ============
+            init();
+            
+        })();
+    </script>
+</body>
+</html>
