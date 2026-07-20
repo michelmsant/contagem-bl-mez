@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0D47A1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BL_MEZ">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230D47A1' width='100' height='100' rx='20'/><text x='50' y='65' text-anchor='middle' fill='white' font-size='50' font-weight='bold'>BL</text></svg>">
+    <title>Contagem BL_MEZ</title>
+    <link rel="stylesheet" href="css/style.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">📦</div>
+                <h1>CONTAGEM BL_MEZ</h1>
+            </div>
+            
+            <div class="user-info">
+                <span class="user-badge" id="userNameDisplay">👤 Carregando...</span>
+                <span class="master-badge" id="masterBadge" style="display:none;">MASTER</span>
+                
+                <div class="hamburger-menu">
+                    <button class="hamburger-btn" id="hamburgerBtn" title="Menu">☰</button>
+                    <div class="menu-dropdown" id="menuDropdown">
+                        <button class="menu-item" id="menuDarkMode">🌓 Modo Escuro</button>
+                        <button class="menu-item" id="menuSync">🔄 Sincronizar Dados</button>
+                        <div class="menu-divider"></div>
+                        <button class="menu-item" id="menuBackup">💾 Backup Contagens</button>
+                        <button class="menu-item" id="menuRestore">📥 Restaurar Backup</button>
+                        <input type="file" id="restoreFileInput" accept=".json" style="display:none;">
+                        <div class="menu-divider"></div>
+                        <button class="menu-item danger" id="menuLogout">🚪 Sair</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- ABAS -->
+        <nav class="tab-navigation">
+            <button class="tab-btn active" data-tab="contagem">📊 Contagem</button>
+            <button class="tab-btn" data-tab="historico" id="tabHistoricoBtn" style="display:none;">📋 Histórico</button>
+        </nav>
+        
+        <!-- ABA CONTAGEM -->
+        <div class="tab-content active" id="tabContagem">
+            <div class="container">
+                <!-- Importação -->
+                <section class="card">
+                    <div class="card-header"><span class="icon">📂</span> Importação da Base DUN_EAN</div>
+                    <div class="import-zone" id="importZone">
+                        <p style="font-size:1.5rem;">📁</p>
+                        <p><strong>Arraste o arquivo TXT aqui</strong><br>ou clique para selecionar</p>
+                        <input type="file" id="fileInput" accept=".txt,.csv,.tsv" style="display:none;">
+                    </div>
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="import-info" id="importInfo">Nenhuma base carregada.</div>
+                </section>
+                
+                <!-- Contagem -->
+                <section class="card">
+                    <div class="card-header"><span class="icon">🔢</span> Contagem de Estoque</div>
+                    <div class="form-grid">
+                        <div class="form-group"><label>Rua</label><input type="text" id="rua" placeholder="Ex: BL1, BL2, BL10"></div>
+                        <div class="form-group"><label>Faixa</label><input type="number" id="faixa" placeholder="Número" min="1"></div>
+                        <div class="form-group">
+                            <label>Código (PLU / EAN / DUN)</label>
+                            <div class="input-with-btn">
+                                <input type="text" id="codigo" placeholder="Digite ou escaneie..." autocomplete="off">
+                                <button class="btn-camera" id="btnCamera" title="Ler código">📷</button>
+                            </div>
+                        </div>
+                        <div class="form-group"><label>Descrição</label><input type="text" id="descricao" readonly placeholder="Automático"></div>
+                        <div class="form-group"><label>Embalagem</label><input type="text" id="embalagem" readonly placeholder="Automático"></div>
+                        <div class="form-group"><label>Qtd. Paletes</label><input type="number" id="quantidade" value="1" min="1"></div>
+                        <div class="form-group" style="grid-column: span 2;"><label>Observações</label><input type="text" id="observacoes" placeholder="Opcional..."></div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-success" id="btnSalvar">✅ Salvar Contagem</button>
+                        <button class="btn btn-outline" id="btnNovaContagem">🔄 Nova Contagem</button>
+                    </div>
+                </section>
+                
+                <!-- Estatísticas -->
+                <section class="card">
+                    <div class="card-header"><span class="icon">📊</span> Estatísticas da Sessão</div>
+                    <div class="stats-grid">
+                        <div class="stat-card"><div class="stat-value" id="statItens">0</div><div class="stat-label">Itens</div></div>
+                        <div class="stat-card"><div class="stat-value" id="statPaletes">0</div><div class="stat-label">Paletes</div></div>
+                        <div class="stat-card"><div class="stat-value" id="statProdutos">0</div><div class="stat-label">Produtos</div></div>
+                        <div class="stat-card"><div class="stat-value" id="statUltima" style="font-size:0.9rem;">--</div><div class="stat-label">Última</div></div>
+                    </div>
+                </section>
+            </div>
+        </div>
+        
+        <!-- ABA HISTÓRICO -->
+        <div class="tab-content" id="tabHistorico">
+            <div class="container">
+                <section class="card">
+                    <div class="card-header"><span class="icon">📋</span> Histórico de Contagens</div>
+                    <div class="filtros-row">
+                        <input type="text" id="filtroRua" placeholder="🔍 Rua...">
+                        <input type="text" id="filtroFaixa" placeholder="🔍 Faixa...">
+                        <input type="text" id="filtroCodigo" placeholder="🔍 Código...">
+                        <input type="text" id="filtroDescricao" placeholder="🔍 Descrição...">
+                    </div>
+                    <div class="btn-row" style="margin-bottom:10px;">
+                        <button class="btn btn-outline btn-sm" id="btnExportCSV">📄 Exportar CSV</button>
+                        <button class="btn btn-outline btn-sm" id="btnExportExcel">📊 Exportar Excel</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th data-sort="rua">Rua <span class="sort-icon"></span></th>
+                                    <th data-sort="faixa">Faixa <span class="sort-icon"></span></th>
+                                    <th data-sort="codigo">Código <span class="sort-icon"></span></th>
+                                    <th data-sort="descricao">Descrição <span class="sort-icon"></span></th>
+                                    <th data-sort="embalagem">Embalagem <span class="sort-icon"></span></th>
+                                    <th data-sort="quantidade">Qtd <span class="sort-icon"></span></th>
+                                    <th data-sort="data">Data <span class="sort-icon"></span></th>
+                                    <th data-sort="hora">Hora <span class="sort-icon"></span></th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaHistorico"></tbody>
+                        </table>
+                    </div>
+                    <p id="nenhumRegistro" style="text-align:center;padding:20px;color:var(--text-secondary);">Nenhuma contagem registrada.</p>
+                </section>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Duplicidade -->
+    <div class="modal-overlay" id="modalDuplicidade" style="display:none;">
+        <div class="modal">
+            <h3>⚠️ Este item já foi contado</h3>
+            <p id="msgDuplicidade"></p>
+            <p>Escolha uma opção:</p>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="btnEditarExistente">✏️ Editar</button>
+                <button class="btn btn-success" id="btnSomarQuantidade">➕ Somar</button>
+                <button class="btn btn-outline" id="btnCancelarDuplicidade">❌ Cancelar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Câmera -->
+    <div class="modal-overlay" id="modalCamera" style="display:none;">
+        <div class="modal" style="max-width:520px;padding:12px;">
+            <div class="camera-container">
+                <button class="camera-close" id="btnFecharCamera">✕</button>
+                <video id="cameraVideo" autoplay playsinline></video>
+            </div>
+            <p style="margin-top:8px;font-size:0.8rem;">Posicione o código em frente à câmera</p>
+            <div class="btn-row" style="justify-content:center;">
+                <button class="btn btn-outline btn-sm" id="btnCameraContinuo">📷 Contínuo: <span id="modoCameraLabel">DESLIGADO</span></button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toastContainer"></div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/camera.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
